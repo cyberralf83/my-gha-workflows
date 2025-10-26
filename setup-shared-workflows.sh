@@ -34,6 +34,7 @@ if [[ "$REMOTE_URL" =~ github\.com[:/]([^/]+)/([^/.]+)(\.git)?$ ]]; then
     REPO_OWNER="${BASH_REMATCH[1]}"
     REPO_NAME="${BASH_REMATCH[2]}"
     WORKFLOWS_REPO="$REPO_OWNER/$REPO_NAME"
+    DEFAULT_USERNAME="$REPO_OWNER"
     echo "✅ Auto-detected repository: $WORKFLOWS_REPO"
 else
     echo "❌ Error: Could not parse GitHub repository from remote URL: $REMOTE_URL"
@@ -58,14 +59,25 @@ echo "     ✓ Updates automatically from shared repo"
 echo "     ✓ Centralized workflow management"
 echo "     ✗ Requires shared workflow repo to be available"
 echo ""
-read -p "Select deployment type [A/B] (default: B): " DEPLOYMENT_TYPE
-DEPLOYMENT_TYPE="${DEPLOYMENT_TYPE:-B}"
-DEPLOYMENT_TYPE=$(echo "$DEPLOYMENT_TYPE" | tr '[:lower:]' '[:upper:]')
 
-if [[ "$DEPLOYMENT_TYPE" != "A" && "$DEPLOYMENT_TYPE" != "B" ]]; then
-    echo "❌ Invalid choice. Please select A or B."
-    exit 1
-fi
+ATTEMPT=1
+while [ $ATTEMPT -le 2 ]; do
+    read -p "Select deployment type [A/B] (default: B): " DEPLOYMENT_TYPE
+    DEPLOYMENT_TYPE="${DEPLOYMENT_TYPE:-B}"
+    DEPLOYMENT_TYPE=$(echo "$DEPLOYMENT_TYPE" | tr '[:lower:]' '[:upper:]')
+
+    if [[ "$DEPLOYMENT_TYPE" != "A" && "$DEPLOYMENT_TYPE" != "B" ]]; then
+        if [ $ATTEMPT -eq 2 ]; then
+            echo "❌ Invalid choice. Please select A or B. Exiting."
+            exit 1
+        else
+            echo "⚠️  Invalid choice. Please select A or B."
+            ATTEMPT=$((ATTEMPT + 1))
+        fi
+    else
+        break
+    fi
+done
 echo ""
 
 # Ask for workflows branch/tag (only for dynamic deployment)
@@ -74,12 +86,25 @@ if [ "$DEPLOYMENT_TYPE" == "B" ]; then
     WORKFLOWS_VERSION="${WORKFLOWS_VERSION:-main}"
 fi
 
-# Ask for Docker app name
-read -p "🐳 Docker image name (e.g., username/app-name): " APP_NAME
-if [ -z "$APP_NAME" ]; then
-    echo "❌ App name cannot be empty"
-    exit 1
-fi
+# Ask for Docker app name with prepopulated default
+DEFAULT_APP_NAME="$DEFAULT_USERNAME/$REPO_NAME"
+ATTEMPT=1
+while [ $ATTEMPT -le 2 ]; do
+    read -p "🐳 Docker image name (default: $DEFAULT_APP_NAME): " APP_NAME
+    APP_NAME="${APP_NAME:-$DEFAULT_APP_NAME}"
+
+    if [ -z "$APP_NAME" ]; then
+        if [ $ATTEMPT -eq 2 ]; then
+            echo "❌ App name cannot be empty. Exiting."
+            exit 1
+        else
+            echo "⚠️  App name cannot be empty. Please try again."
+            ATTEMPT=$((ATTEMPT + 1))
+        fi
+    else
+        break
+    fi
+done
 
 # Ask for Dockerfile path
 read -p "📄 Path to Dockerfile (default: ./Dockerfile): " DOCKERFILE_PATH
@@ -99,20 +124,43 @@ echo "Docker Hub Credentials"
 echo "======================================"
 echo ""
 
-# Ask for Docker Hub username
-read -p "🔐 Docker Hub username: " DOCKERHUB_USERNAME
-if [ -z "$DOCKERHUB_USERNAME" ]; then
-    echo "❌ Docker Hub username cannot be empty"
-    exit 1
-fi
+# Ask for Docker Hub username with prepopulated default
+ATTEMPT=1
+while [ $ATTEMPT -le 2 ]; do
+    read -p "🔐 Docker Hub username (default: $DEFAULT_USERNAME): " DOCKERHUB_USERNAME
+    DOCKERHUB_USERNAME="${DOCKERHUB_USERNAME:-$DEFAULT_USERNAME}"
+
+    if [ -z "$DOCKERHUB_USERNAME" ]; then
+        if [ $ATTEMPT -eq 2 ]; then
+            echo "❌ Docker Hub username cannot be empty. Exiting."
+            exit 1
+        else
+            echo "⚠️  Docker Hub username cannot be empty. Please try again."
+            ATTEMPT=$((ATTEMPT + 1))
+        fi
+    else
+        break
+    fi
+done
 
 # Ask for Docker Hub token (hidden input)
-read -s -p "🔑 Docker Hub token/password: " DOCKERHUB_TOKEN
-echo ""
-if [ -z "$DOCKERHUB_TOKEN" ]; then
-    echo "❌ Docker Hub token cannot be empty"
-    exit 1
-fi
+ATTEMPT=1
+while [ $ATTEMPT -le 2 ]; do
+    read -s -p "🔑 Docker Hub token/password: " DOCKERHUB_TOKEN
+    echo ""
+
+    if [ -z "$DOCKERHUB_TOKEN" ]; then
+        if [ $ATTEMPT -eq 2 ]; then
+            echo "❌ Docker Hub token cannot be empty. Exiting."
+            exit 1
+        else
+            echo "⚠️  Docker Hub token cannot be empty. Please try again."
+            ATTEMPT=$((ATTEMPT + 1))
+        fi
+    else
+        break
+    fi
+done
 
 echo ""
 echo "📝 Creating .github/workflows/ci.yml..."
@@ -205,38 +253,60 @@ echo "✅ Created .github/workflows/ci.yml"
 
 echo ""
 echo "======================================"
-echo "Setting GitHub Secrets"
+echo "Setting up GitHub Secrets & Deploying"
 echo "======================================"
 echo ""
 
 # Check if gh CLI is installed
 if ! command -v gh &> /dev/null; then
-    echo "⚠️  GitHub CLI (gh) not found. Please install it to set secrets automatically."
-    echo "   Visit: https://cli.github.com/"
+    echo "❌ GitHub CLI not installed. Install it from https://cli.github.com"
     echo ""
-    echo "   Manual setup:"
-    echo "   1. Go to Settings → Secrets and variables → Actions"
-    echo "   2. Add DOCKERHUB_USERNAME: $DOCKERHUB_USERNAME"
-    echo "   3. Add DOCKERHUB_TOKEN: (your token)"
-else
-    echo "🔐 Setting DOCKERHUB_USERNAME secret..."
-    if echo "$DOCKERHUB_USERNAME" | gh secret set DOCKERHUB_USERNAME; then
-        echo "✅ DOCKERHUB_USERNAME secret set successfully"
-    else
-        echo "❌ Failed to set DOCKERHUB_USERNAME secret"
-    fi
+    echo "Manual setup required:"
+    echo "1. Go to Settings → Secrets and variables → Actions"
+    echo "2. Add DOCKERHUB_USERNAME: $DOCKERHUB_USERNAME"
+    echo "3. Add DOCKERHUB_TOKEN: (your token)"
+    echo "4. Run: git add .github/workflows/ci.yml && git commit -m 'Add Docker workflow' && git push"
+    exit 1
+fi
 
-    echo "🔐 Setting DOCKERHUB_TOKEN secret..."
-    if echo "$DOCKERHUB_TOKEN" | gh secret set DOCKERHUB_TOKEN; then
-        echo "✅ DOCKERHUB_TOKEN secret set successfully"
-    else
-        echo "❌ Failed to set DOCKERHUB_TOKEN secret"
-    fi
+# Set up GitHub secrets
+echo "🔐 Setting up GitHub secrets..."
+echo ""
+
+# Set Docker Hub username secret
+if echo "$DOCKERHUB_USERNAME" | gh secret set DOCKERHUB_USERNAME; then
+    echo "✅ DOCKERHUB_USERNAME secret set"
+else
+    echo "❌ Failed to set DOCKERHUB_USERNAME secret"
+    exit 1
+fi
+
+# Set Docker Hub token secret
+if echo "$DOCKERHUB_TOKEN" | gh secret set DOCKERHUB_TOKEN; then
+    echo "✅ DOCKERHUB_TOKEN secret set"
+else
+    echo "❌ Failed to set DOCKERHUB_TOKEN secret"
+    exit 1
 fi
 
 echo ""
+echo "📤 Committing and pushing workflow files to GitHub..."
+git add .github/workflows/ci.yml
+git commit -m "Add Docker CI/CD workflow (${DEPLOYMENT_DESC})"
+git push
+
+echo ""
+echo "✅ Workflow pushed to GitHub!"
+
+echo ""
+echo "🚀 Triggering CI/CD workflow..."
+# Wait a moment for GitHub to process the push
+sleep 2
+gh workflow run ci.yml
+
+echo ""
 echo "======================================"
-echo "✅ Setup Complete!"
+echo "✨ Setup Complete!"
 echo "======================================"
 echo ""
 echo "📋 Deployment Summary:"
@@ -245,15 +315,14 @@ echo "   Deployment Type: $DEPLOYMENT_DESC"
 echo "   Docker Image: $APP_NAME"
 echo "   Platforms: $PLATFORMS"
 echo ""
-echo "======================================"
-echo "Next Steps:"
-echo "======================================"
+echo "🎯 Your Docker workflow has been:"
+echo "   ✅ Created and configured"
+echo "   ✅ Pushed to GitHub"
+echo "   ✅ Triggered to run"
 echo ""
-echo "1️⃣  Commit and push the workflow:"
-echo "   $ git add .github/workflows/ci.yml"
-echo "   $ git commit -m 'Add Docker CI/CD workflow'"
-echo "   $ git push"
+echo "📊 View workflow status:"
+echo "   $ gh run list --workflow=ci.yml"
 echo ""
-echo "2️⃣  The workflow will run on next push to main/develop or git tag!"
+echo "🔍 Watch live logs:"
+echo "   $ gh run watch"
 echo ""
-echo "======================================"
