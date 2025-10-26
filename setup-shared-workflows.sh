@@ -34,16 +34,45 @@ if [[ "$REMOTE_URL" =~ github\.com[:/]([^/]+)/([^/.]+)(\.git)?$ ]]; then
     REPO_OWNER="${BASH_REMATCH[1]}"
     REPO_NAME="${BASH_REMATCH[2]}"
     WORKFLOWS_REPO="$REPO_OWNER/$REPO_NAME"
-    echo "✅ Auto-detected shared workflows repo: $WORKFLOWS_REPO"
+    echo "✅ Auto-detected repository: $WORKFLOWS_REPO"
 else
     echo "❌ Error: Could not parse GitHub repository from remote URL: $REMOTE_URL"
     exit 1
 fi
 echo ""
 
-# Ask for workflows branch/tag
-read -p "🔗 Workflows version/branch (default: main): " WORKFLOWS_VERSION
-WORKFLOWS_VERSION="${WORKFLOWS_VERSION:-main}"
+# Ask for workflow deployment type
+echo "======================================"
+echo "Workflow Deployment Type"
+echo "======================================"
+echo ""
+echo "Choose how to deploy your Docker CI/CD workflow:"
+echo ""
+echo "  A) Static workflow (self-contained, all steps in your repo)"
+echo "     ✓ No external dependencies"
+echo "     ✓ Complete control over workflow"
+echo "     ✗ Updates require manual changes"
+echo ""
+echo "  B) Dynamic workflow (references shared workflow repo)"
+echo "     ✓ Updates automatically from shared repo"
+echo "     ✓ Centralized workflow management"
+echo "     ✗ Requires shared workflow repo to be available"
+echo ""
+read -p "Select deployment type [A/B] (default: B): " DEPLOYMENT_TYPE
+DEPLOYMENT_TYPE="${DEPLOYMENT_TYPE:-B}"
+DEPLOYMENT_TYPE=$(echo "$DEPLOYMENT_TYPE" | tr '[:lower:]' '[:upper:]')
+
+if [[ "$DEPLOYMENT_TYPE" != "A" && "$DEPLOYMENT_TYPE" != "B" ]]; then
+    echo "❌ Invalid choice. Please select A or B."
+    exit 1
+fi
+echo ""
+
+# Ask for workflows branch/tag (only for dynamic deployment)
+if [ "$DEPLOYMENT_TYPE" == "B" ]; then
+    read -p "🔗 Workflows version/branch (default: main): " WORKFLOWS_VERSION
+    WORKFLOWS_VERSION="${WORKFLOWS_VERSION:-main}"
+fi
 
 # Ask for Docker app name
 read -p "🐳 Docker image name (e.g., username/app-name): " APP_NAME
@@ -92,8 +121,59 @@ echo ""
 # Create .github/workflows directory
 mkdir -p .github/workflows
 
-# Create ci.yml that references the shared workflow
-cat > .github/workflows/ci.yml << EOF
+# Create ci.yml based on deployment type
+if [ "$DEPLOYMENT_TYPE" == "A" ]; then
+    # Option A: Static workflow (self-contained)
+    cat > .github/workflows/ci.yml << 'EOF'
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+    tags:
+      - 'v*'
+
+jobs:
+  build-and-push-docker:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: BUILD_CONTEXT_PLACEHOLDER
+          file: DOCKERFILE_PATH_PLACEHOLDER
+          platforms: PLATFORMS_PLACEHOLDER
+          push: true
+          tags: IMAGE_NAME_PLACEHOLDER:${{ github.ref_name == 'main' && 'latest' || github.ref_name }}
+EOF
+    # Replace placeholders with actual values
+    sed -i.bak "s|BUILD_CONTEXT_PLACEHOLDER|$BUILD_CONTEXT|g" .github/workflows/ci.yml
+    sed -i.bak "s|DOCKERFILE_PATH_PLACEHOLDER|$DOCKERFILE_PATH|g" .github/workflows/ci.yml
+    sed -i.bak "s|PLATFORMS_PLACEHOLDER|$PLATFORMS|g" .github/workflows/ci.yml
+    sed -i.bak "s|IMAGE_NAME_PLACEHOLDER|$APP_NAME|g" .github/workflows/ci.yml
+    rm -f .github/workflows/ci.yml.bak
+
+    DEPLOYMENT_DESC="Static workflow (self-contained)"
+else
+    # Option B: Dynamic workflow (references shared workflow)
+    cat > .github/workflows/ci.yml << EOF
 name: CI/CD Pipeline
 
 on:
@@ -117,6 +197,9 @@ jobs:
       DOCKERHUB_USERNAME: \${{ secrets.DOCKERHUB_USERNAME }}
       DOCKERHUB_TOKEN: \${{ secrets.DOCKERHUB_TOKEN }}
 EOF
+
+    DEPLOYMENT_DESC="Dynamic workflow (uses $WORKFLOWS_REPO@$WORKFLOWS_VERSION)"
+fi
 
 echo "✅ Created .github/workflows/ci.yml"
 
@@ -153,6 +236,16 @@ fi
 
 echo ""
 echo "======================================"
+echo "✅ Setup Complete!"
+echo "======================================"
+echo ""
+echo "📋 Deployment Summary:"
+echo "   Repository: $WORKFLOWS_REPO"
+echo "   Deployment Type: $DEPLOYMENT_DESC"
+echo "   Docker Image: $APP_NAME"
+echo "   Platforms: $PLATFORMS"
+echo ""
+echo "======================================"
 echo "Next Steps:"
 echo "======================================"
 echo ""
@@ -163,6 +256,4 @@ echo "   $ git push"
 echo ""
 echo "2️⃣  The workflow will run on next push to main/develop or git tag!"
 echo ""
-echo "======================================"
-echo "ℹ️  Using shared workflows repo: $WORKFLOWS_REPO@$WORKFLOWS_VERSION"
 echo "======================================"
