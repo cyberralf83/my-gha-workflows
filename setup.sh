@@ -146,6 +146,8 @@ echo ""
 
 # Ask for Docker image name
 DEFAULT_APP_NAME="$DOCKERHUB_USERNAME/$REPO_NAME"
+echo "ℹ️  Note: Image name will be auto-converted to lowercase (Docker requirement)"
+echo ""
 ATTEMPT=1
 while [ $ATTEMPT -le 2 ]; do
     read -p "🐳 Docker image name (default: $DEFAULT_APP_NAME): " APP_NAME
@@ -353,6 +355,10 @@ if gh run watch --exit-status 2>/dev/null; then
     echo "   Trigger manually: gh workflow run ci.yml"
     echo "   Pull image:       docker pull $APP_NAME:latest"
     echo ""
+    echo "🔗 GitHub Actions:"
+    echo "   https://github.com/$REPO_OWNER/$CURRENT_REPO/actions"
+    echo ""
+    exit 0
 else
     EXIT_CODE=$?
     echo ""
@@ -368,6 +374,9 @@ else
     echo "💡 To view details:"
     echo "   $ gh run view"
     echo "   $ gh run list --workflow=ci.yml"
+    echo ""
+    echo "🔗 GitHub Actions:"
+    echo "   https://github.com/$REPO_OWNER/$CURRENT_REPO/actions"
     echo ""
     exit $EXIT_CODE
 fi
