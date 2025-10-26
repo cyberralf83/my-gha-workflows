@@ -33,14 +33,20 @@ fi
 mkdir -p .github/workflows
 echo "✅ Created .github/workflows directory"
 
+echo ""
+echo "======================================"
+echo "Docker Hub Credentials"
+echo "======================================"
+echo ""
+
 # Ask for Docker Hub username with GitHub username as default
 ATTEMPT=1
 while [ $ATTEMPT -le 2 ]; do
     if [ -n "$DEFAULT_USERNAME" ]; then
-        read -p "🐳 Docker Hub username (default: $DEFAULT_USERNAME): " DOCKERHUB_USERNAME
+        read -p "🔐 Docker Hub username (default: $DEFAULT_USERNAME): " DOCKERHUB_USERNAME
         DOCKERHUB_USERNAME="${DOCKERHUB_USERNAME:-$DEFAULT_USERNAME}"
     else
-        read -p "🐳 Docker Hub username: " DOCKERHUB_USERNAME
+        read -p "🔐 Docker Hub username: " DOCKERHUB_USERNAME
     fi
 
     if [ -z "$DOCKERHUB_USERNAME" ]; then
@@ -56,8 +62,33 @@ while [ $ATTEMPT -le 2 ]; do
     fi
 done
 
+# Ask for Docker Hub token immediately after username
+ATTEMPT=1
+while [ $ATTEMPT -le 2 ]; do
+    read -sp "🔑 Docker Hub access token (create at https://hub.docker.com/settings/security): " DOCKERHUB_TOKEN
+    echo ""
+
+    if [ -z "$DOCKERHUB_TOKEN" ]; then
+        if [ $ATTEMPT -eq 2 ]; then
+            echo "❌ Token cannot be empty. Exiting."
+            exit 1
+        else
+            echo "⚠️  Token cannot be empty. Please try again."
+            ATTEMPT=$((ATTEMPT + 1))
+        fi
+    else
+        break
+    fi
+done
+
+echo ""
+echo "======================================"
+echo "Docker Build Configuration"
+echo "======================================"
+echo ""
+
 # Ask for app name
-read -p "📦 Docker image name (default: $DOCKERHUB_USERNAME/$REPO_NAME): " APP_NAME
+read -p "🐳 Docker image name (default: $DOCKERHUB_USERNAME/$REPO_NAME): " APP_NAME
 APP_NAME="${APP_NAME:-$DOCKERHUB_USERNAME/$REPO_NAME}"
 
 # Ask for Dockerfile path
@@ -156,6 +187,7 @@ on:
       - develop
     tags:
       - 'v*'
+  workflow_dispatch:
 
 jobs:
   build-and-push-docker:
@@ -199,26 +231,8 @@ echo ""
 gh secret set DOCKERHUB_USERNAME --body "$DOCKERHUB_USERNAME"
 echo "✅ DOCKERHUB_USERNAME secret set"
 
-# Get Docker Hub token
-ATTEMPT=1
-while [ $ATTEMPT -le 2 ]; do
-    read -sp "🐳 Docker Hub access token (create at https://hub.docker.com/settings/security): " TOKEN
-    echo ""
-
-    if [ -z "$TOKEN" ]; then
-        if [ $ATTEMPT -eq 2 ]; then
-            echo "❌ Token cannot be empty. Exiting."
-            exit 1
-        else
-            echo "⚠️  Token cannot be empty. Please try again."
-            ATTEMPT=$((ATTEMPT + 1))
-        fi
-    else
-        break
-    fi
-done
-
-gh secret set DOCKERHUB_TOKEN --body "$TOKEN"
+# Set Docker Hub token secret (already collected earlier)
+gh secret set DOCKERHUB_TOKEN --body "$DOCKERHUB_TOKEN"
 echo "✅ DOCKERHUB_TOKEN secret set"
 
 echo ""

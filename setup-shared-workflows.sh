@@ -88,11 +88,11 @@ fi
 
 echo ""
 echo "======================================"
-echo "Docker Hub Configuration"
+echo "Docker Hub Credentials"
 echo "======================================"
 echo ""
 
-# Ask for Docker Hub username first (so we can use it for image name default)
+# Ask for Docker Hub username first
 ATTEMPT=1
 while [ $ATTEMPT -le 2 ]; do
     read -p "🔐 Docker Hub username (default: $DEFAULT_USERNAME): " DOCKERHUB_USERNAME
@@ -111,6 +111,29 @@ while [ $ATTEMPT -le 2 ]; do
     fi
 done
 
+# Ask for Docker Hub token immediately after username
+ATTEMPT=1
+while [ $ATTEMPT -le 2 ]; do
+    read -s -p "🔑 Docker Hub token/password: " DOCKERHUB_TOKEN
+    echo ""
+
+    if [ -z "$DOCKERHUB_TOKEN" ]; then
+        if [ $ATTEMPT -eq 2 ]; then
+            echo "❌ Docker Hub token cannot be empty. Exiting."
+            exit 1
+        else
+            echo "⚠️  Docker Hub token cannot be empty. Please try again."
+            ATTEMPT=$((ATTEMPT + 1))
+        fi
+    else
+        break
+    fi
+done
+
+echo ""
+echo "======================================"
+echo "Docker Build Configuration"
+echo "======================================"
 echo ""
 
 # Ask for Docker app name with prepopulated default using DOCKERHUB_USERNAME
@@ -146,31 +169,6 @@ read -p "🖥️  Target platforms (default: linux/amd64,linux/arm64): " PLATFOR
 PLATFORMS="${PLATFORMS:-linux/amd64,linux/arm64}"
 
 echo ""
-echo "======================================"
-echo "Docker Hub Token"
-echo "======================================"
-echo ""
-
-# Ask for Docker Hub token (hidden input)
-ATTEMPT=1
-while [ $ATTEMPT -le 2 ]; do
-    read -s -p "🔑 Docker Hub token/password: " DOCKERHUB_TOKEN
-    echo ""
-
-    if [ -z "$DOCKERHUB_TOKEN" ]; then
-        if [ $ATTEMPT -eq 2 ]; then
-            echo "❌ Docker Hub token cannot be empty. Exiting."
-            exit 1
-        else
-            echo "⚠️  Docker Hub token cannot be empty. Please try again."
-            ATTEMPT=$((ATTEMPT + 1))
-        fi
-    else
-        break
-    fi
-done
-
-echo ""
 echo "📝 Creating .github/workflows/ci.yml..."
 echo ""
 
@@ -190,6 +188,7 @@ on:
       - develop
     tags:
       - 'v*'
+  workflow_dispatch:
 
 jobs:
   build-and-push-docker:
@@ -239,6 +238,7 @@ on:
       - develop
     tags:
       - 'v*'
+  workflow_dispatch:
 
 jobs:
   build-and-push-docker:
