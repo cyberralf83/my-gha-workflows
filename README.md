@@ -31,43 +31,28 @@ The setup script creates a GitHub Actions workflow that:
 
 ## Workflow Options
 
-When you run the script, you'll choose one of three deployment types:
+When you run the script, you'll choose one of two deployment types:
 
 ### Option A: Simple Inline Workflow
 
 Creates a single workflow file with all steps embedded.
 
-**Best for:** Single repository, simple setup, easy to understand
+**Best for:** Most use cases - simple, clear, and easy to maintain
 
 **Pros:**
 - All code in one file
-- Easy to customize
+- Easy to understand and customize
 - No external dependencies
+- Can be manually triggered to rebuild anytime
 
 **Cons:**
-- Must update each repo individually
-- Code duplication if used across repos
+- Must update each repo individually if used across multiple repos
 
-### Option B: Local Reusable Workflow
-
-Creates a reusable workflow file plus a CI file that calls it.
-
-**Best for:** Complex repositories with multiple workflows
-
-**Pros:**
-- Organized workflow structure
-- Can be reused by other workflows in same repo
-- Separates concerns
-
-**Cons:**
-- Two files to maintain
-- Slightly more complex than Option A
-
-### Option C: Remote Shared Workflow
+### Option B: Remote Shared Workflow
 
 References a centralized shared workflow from an external repository.
 
-**Best for:** Managing multiple repositories
+**Best for:** Managing multiple repositories with consistent workflows
 
 **Pros:**
 - Update once, apply everywhere
@@ -75,7 +60,7 @@ References a centralized shared workflow from an external repository.
 - Consistent across all repos
 
 **Cons:**
-- Requires separate shared workflow repository
+- Requires separate shared workflow repository (must be public)
 - External dependency
 
 ## Prerequisites
@@ -89,7 +74,7 @@ References a centralized shared workflow from an external repository.
 
 The script will ask you for:
 
-1. **Deployment Type** - Choose A, B, or C (default: A)
+1. **Deployment Type** - Choose A or B (default: A)
 2. **Docker Hub Username** - Your Docker Hub username (auto-detected from GitHub)
 3. **Docker Hub Token** - Access token from Docker Hub
 4. **Docker Image Name** - Full image name (default: `username/repo-name`)
@@ -122,13 +107,9 @@ Depending on your choice:
 - `.github/workflows/ci.yml` - Complete workflow with all steps
 
 **Option B:**
-- `.github/workflows/docker-build-push.yml` - Reusable workflow
-- `.github/workflows/ci.yml` - CI workflow that calls the reusable one
-
-**Option C:**
 - `.github/workflows/ci.yml` - CI workflow that references remote shared workflow
 
-Plus GitHub Secrets:
+**Plus GitHub Secrets (both options):**
 - `DOCKERHUB_USERNAME` - Your Docker Hub username
 - `DOCKERHUB_TOKEN` - Your Docker Hub access token
 
@@ -230,15 +211,15 @@ After setup, you can edit the workflow files in `.github/workflows/` to:
 - Add notifications
 - Integrate with other services
 
-### Using with Option C (Shared Workflows)
+### Using with Option B (Shared Workflows)
 
-For Option C, you need a separate public repository with the shared workflow:
+For Option B, you need a separate public repository with the shared workflow:
 
 1. Create a public repo (e.g., `my-workflows`)
 2. Add `.github/workflows/docker-build-push.yml` with the reusable workflow
 3. Reference it in your app repos using the setup script
 
-See the reusable workflow template in this repository's `.github/workflows/` directory (if using Option B locally, it generates this file).
+The reusable workflow should follow the `workflow_call` pattern with inputs for image-name, image-tag, dockerfile-path, build-context, and platforms.
 
 ## Repository Structure
 

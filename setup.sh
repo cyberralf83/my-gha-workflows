@@ -49,14 +49,10 @@ echo ""
 echo "  A) Simple inline workflow"
 echo "     ✓ All steps in one file (.github/workflows/ci.yml)"
 echo "     ✓ Easy to understand and modify"
-echo "     ✓ Best for single repository"
+echo "     ✓ Best for most use cases"
+echo "     ✓ Can be manually triggered to rebuild anytime"
 echo ""
-echo "  B) Local reusable workflow"
-echo "     ✓ Creates reusable workflow + CI workflow"
-echo "     ✓ Can be referenced by other workflows in same repo"
-echo "     ✓ Better organization for complex repos"
-echo ""
-echo "  C) Remote shared workflow"
+echo "  B) Remote shared workflow"
 echo "     ✓ References external shared workflow repository"
 echo "     ✓ Centralized updates across multiple repos"
 echo "     ✓ Best for managing many repositories"
@@ -64,16 +60,16 @@ echo ""
 
 ATTEMPT=1
 while [ $ATTEMPT -le 2 ]; do
-    read -p "Select deployment type [A/B/C] (default: A): " DEPLOYMENT_TYPE
+    read -p "Select deployment type [A/B] (default: A): " DEPLOYMENT_TYPE
     DEPLOYMENT_TYPE="${DEPLOYMENT_TYPE:-A}"
     DEPLOYMENT_TYPE=$(echo "$DEPLOYMENT_TYPE" | tr '[:lower:]' '[:upper:]')
 
-    if [[ "$DEPLOYMENT_TYPE" != "A" && "$DEPLOYMENT_TYPE" != "B" && "$DEPLOYMENT_TYPE" != "C" ]]; then
+    if [[ "$DEPLOYMENT_TYPE" != "A" && "$DEPLOYMENT_TYPE" != "B" ]]; then
         if [ $ATTEMPT -eq 2 ]; then
-            echo "❌ Invalid choice. Please select A, B, or C. Exiting."
+            echo "❌ Invalid choice. Please select A or B. Exiting."
             exit 1
         else
-            echo "⚠️  Invalid choice. Please select A, B, or C."
+            echo "⚠️  Invalid choice. Please select A or B."
             ATTEMPT=$((ATTEMPT + 1))
         fi
     else
@@ -82,8 +78,8 @@ while [ $ATTEMPT -le 2 ]; do
 done
 echo ""
 
-# Ask for remote workflow repo details (only for option C)
-if [ "$DEPLOYMENT_TYPE" == "C" ]; then
+# Ask for remote workflow repo details (only for option B)
+if [ "$DEPLOYMENT_TYPE" == "B" ]; then
     read -p "🔗 Shared workflow repository (e.g., username/my-workflows): " WORKFLOWS_REPO
     if [ -z "$WORKFLOWS_REPO" ]; then
         echo "❌ Workflow repository cannot be empty"
@@ -238,105 +234,7 @@ EOF
     DEPLOYMENT_DESC="Simple inline workflow"
 
 elif [ "$DEPLOYMENT_TYPE" == "B" ]; then
-    # Option B: Local reusable workflow
-    cat > .github/workflows/docker-build-push.yml << 'EOF'
-name: Build and Push Docker Image
-
-on:
-  workflow_call:
-    inputs:
-      image-name:
-        description: 'Docker image name (e.g., myusername/myapp)'
-        required: true
-        type: string
-      image-tag:
-        description: 'Docker image tag (e.g., latest, v1.0.0)'
-        required: false
-        default: 'latest'
-        type: string
-      dockerfile-path:
-        description: 'Path to Dockerfile'
-        required: false
-        default: './Dockerfile'
-        type: string
-      build-context:
-        description: 'Build context path'
-        required: false
-        default: '.'
-        type: string
-      platforms:
-        description: 'Target platforms (e.g., linux/amd64,linux/arm64)'
-        required: false
-        default: 'linux/amd64'
-        type: string
-    secrets:
-      DOCKERHUB_USERNAME:
-        description: 'Docker Hub username'
-        required: true
-      DOCKERHUB_TOKEN:
-        description: 'Docker Hub access token'
-        required: true
-
-jobs:
-  build-and-push:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Login to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: Build and push
-        uses: docker/build-push-action@v6
-        with:
-          context: ${{ inputs.build-context }}
-          file: ${{ inputs.dockerfile-path }}
-          platforms: ${{ inputs.platforms }}
-          push: true
-          tags: ${{ inputs.image-name }}:${{ inputs.image-tag }}
-EOF
-    echo "✅ Created .github/workflows/docker-build-push.yml"
-
-    cat > .github/workflows/ci.yml << EOF
-name: CI/CD Pipeline
-
-on:
-  push:
-    branches:
-      - main
-      - develop
-    tags:
-      - 'v*'
-  workflow_dispatch:
-
-jobs:
-  build-and-push-docker:
-    uses: ./.github/workflows/docker-build-push.yml@main
-    with:
-      image-name: $APP_NAME
-      image-tag: \${{ github.ref_name == 'main' && 'latest' || github.ref_name }}
-      dockerfile-path: '$DOCKERFILE_PATH'
-      build-context: '$BUILD_CONTEXT'
-      platforms: '$PLATFORMS'
-    secrets:
-      DOCKERHUB_USERNAME: \${{ secrets.DOCKERHUB_USERNAME }}
-      DOCKERHUB_TOKEN: \${{ secrets.DOCKERHUB_TOKEN }}
-EOF
-    echo "✅ Created .github/workflows/ci.yml"
-    DEPLOYMENT_DESC="Local reusable workflow"
-
-else
-    # Option C: Remote shared workflow
+    # Option B: Remote shared workflow
     cat > .github/workflows/ci.yml << EOF
 name: CI/CD Pipeline
 
