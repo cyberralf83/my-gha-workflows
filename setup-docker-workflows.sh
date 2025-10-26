@@ -21,12 +21,26 @@ REPO_NAME=$(basename "$(git rev-parse --show-toplevel)")
 echo "📁 Repository: $REPO_NAME"
 echo ""
 
+# Extract GitHub username from remote URL
+GIT_REMOTE_URL=$(git remote get-url origin 2>/dev/null || echo "")
+if [[ $GIT_REMOTE_URL =~ github\.com[:/]([^/]+)/ ]]; then
+    DEFAULT_USERNAME="${BASH_REMATCH[1]}"
+else
+    DEFAULT_USERNAME=""
+fi
+
 # Create .github/workflows directory
 mkdir -p .github/workflows
 echo "✅ Created .github/workflows directory"
 
-# Ask for Docker Hub username
-read -p "🐳 Docker Hub username: " DOCKERHUB_USERNAME
+# Ask for Docker Hub username with GitHub username as default
+if [ -n "$DEFAULT_USERNAME" ]; then
+    read -p "🐳 Docker Hub username (default: $DEFAULT_USERNAME): " DOCKERHUB_USERNAME
+    DOCKERHUB_USERNAME="${DOCKERHUB_USERNAME:-$DEFAULT_USERNAME}"
+else
+    read -p "🐳 Docker Hub username: " DOCKERHUB_USERNAME
+fi
+
 if [ -z "$DOCKERHUB_USERNAME" ]; then
     echo "❌ Docker Hub username cannot be empty"
     exit 1
@@ -150,61 +164,70 @@ echo "✅ Created .github/workflows/ci.yml"
 
 echo ""
 echo "======================================"
-echo "Next Steps:"
+echo "Setting up GitHub Secrets & Deploying"
 echo "======================================"
 echo ""
-echo "1️⃣  Create Docker Hub access token:"
-echo "   - Go to https://hub.docker.com/settings/security"
-echo "   - Create a new access token"
-echo ""
-echo "2️⃣  Add GitHub secrets (choose one method):"
-echo ""
-echo "   Option A: Using GitHub CLI (faster)"
-echo "   $ gh secret set DOCKERHUB_USERNAME --body '$DOCKERHUB_USERNAME'"
-echo "   $ gh secret set DOCKERHUB_TOKEN --body 'your_token_here'"
-echo ""
-echo "   Option B: Manual (via GitHub website)"
-echo "   - Go to Settings → Secrets and variables → Actions"
-echo "   - Add DOCKERHUB_USERNAME: $DOCKERHUB_USERNAME"
-echo "   - Add DOCKERHUB_TOKEN: (your access token)"
-echo ""
-echo "3️⃣  Commit and push the workflow files:"
-echo "   $ git add .github/workflows/"
-echo "   $ git commit -m 'Add Docker build and push workflows'"
-echo "   $ git push"
-echo ""
-echo "4️⃣  When you push to main/develop or create a tag, the workflow will run!"
-echo ""
-echo "======================================"
 
-# Ask if user wants to set up secrets now
-echo ""
-read -p "Would you like to set up GitHub secrets now? (requires 'gh' CLI) [y/N]: " SETUP_SECRETS
-
-if [[ $SETUP_SECRETS =~ ^[Yy]$ ]]; then
-    # Check if gh CLI is installed
-    if ! command -v gh &> /dev/null; then
-        echo "❌ GitHub CLI not installed. Install it from https://cli.github.com"
-        echo "Then run:"
-        echo "   gh secret set DOCKERHUB_USERNAME --body '$DOCKERHUB_USERNAME'"
-        echo "   gh secret set DOCKERHUB_TOKEN --body 'your_token_here'"
-    else
-        echo ""
-        echo "Setting up secrets with GitHub CLI..."
-        echo ""
-        gh secret set DOCKERHUB_USERNAME --body "$DOCKERHUB_USERNAME"
-        echo "✅ DOCKERHUB_USERNAME secret set"
-        
-        read -sp "🔐 Docker Hub access token (won't be displayed): " TOKEN
-        echo ""
-        if [ -z "$TOKEN" ]; then
-            echo "❌ Token cannot be empty"
-        else
-            gh secret set DOCKERHUB_TOKEN --body "$TOKEN"
-            echo "✅ DOCKERHUB_TOKEN secret set"
-        fi
-    fi
+# Check if gh CLI is installed
+if ! command -v gh &> /dev/null; then
+    echo "❌ GitHub CLI not installed. Install it from https://cli.github.com"
+    echo ""
+    echo "Manual setup required:"
+    echo "1. Create Docker Hub access token at https://hub.docker.com/settings/security"
+    echo "2. Add secrets at Settings → Secrets and variables → Actions"
+    echo "   - DOCKERHUB_USERNAME: $DOCKERHUB_USERNAME"
+    echo "   - DOCKERHUB_TOKEN: (your access token)"
+    echo "3. Run: git add .github/workflows/ && git commit -m 'Add Docker workflows' && git push"
+    exit 1
 fi
 
+# Set up GitHub secrets
+echo "🔐 Setting up GitHub secrets..."
 echo ""
-echo "✨ Setup complete!"
+
+# Set Docker Hub username secret
+gh secret set DOCKERHUB_USERNAME --body "$DOCKERHUB_USERNAME"
+echo "✅ DOCKERHUB_USERNAME secret set"
+
+# Get Docker Hub token
+read -sp "🐳 Docker Hub access token (create at https://hub.docker.com/settings/security): " TOKEN
+echo ""
+if [ -z "$TOKEN" ]; then
+    echo "❌ Token cannot be empty"
+    exit 1
+fi
+
+gh secret set DOCKERHUB_TOKEN --body "$TOKEN"
+echo "✅ DOCKERHUB_TOKEN secret set"
+
+echo ""
+echo "📤 Committing and pushing workflow files to GitHub..."
+git add .github/workflows/
+git commit -m "Add Docker build and push workflows"
+git push
+
+echo ""
+echo "✅ Workflows pushed to GitHub!"
+
+echo ""
+echo "🚀 Triggering CI/CD workflow..."
+# Wait a moment for GitHub to process the push
+sleep 2
+gh workflow run ci.yml
+
+echo ""
+echo "======================================"
+echo "✨ Setup Complete!"
+echo "======================================"
+echo ""
+echo "🎯 Your Docker workflow has been:"
+echo "   ✅ Created and configured"
+echo "   ✅ Pushed to GitHub"
+echo "   ✅ Triggered to run"
+echo ""
+echo "📊 View workflow status:"
+echo "   $ gh run list --workflow=ci.yml"
+echo ""
+echo "🔍 Watch live logs:"
+echo "   $ gh run watch"
+echo ""
