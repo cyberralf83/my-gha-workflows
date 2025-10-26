@@ -1,194 +1,136 @@
 # GitHub Actions Docker Workflow Setup
 
-Automated setup script for deploying Docker build and push workflows to your GitHub repositories.
+One simple script to set up Docker CI/CD workflows for your GitHub repositories.
 
 ## Quick Start
 
-Run this one-line command in your repository to set up Docker CI/CD:
+Run this one command in your repository:
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/cyberralf83/my-gha-workflows/main/setup-shared-workflows.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/cyberralf83/my-gha-workflows/main/setup.sh)
 ```
 
-The script will interactively guide you through the setup process.
+Or download and run locally:
+
+```bash
+curl -fsSL -o setup.sh https://raw.githubusercontent.com/cyberralf83/my-gha-workflows/main/setup.sh
+chmod +x setup.sh
+./setup.sh
+```
 
 ## What This Does
 
-This setup script automates the creation of a GitHub Actions workflow that:
+The setup script creates a GitHub Actions workflow that:
 
 - ✅ Builds Docker images for your application
 - ✅ Pushes images to Docker Hub
 - ✅ Supports multi-platform builds (ARM64, AMD64)
 - ✅ Automatically sets up GitHub secrets
 - ✅ Triggers on push to main/develop branches and version tags
+- ✅ Can be manually triggered via GitHub UI or CLI
 
-## Deployment Options
+## Workflow Options
 
-### Option A: Static Workflow (Self-Contained)
+When you run the script, you'll choose one of three deployment types:
 
-Creates a complete workflow file directly in your repository with all build steps embedded.
+### Option A: Simple Inline Workflow
+
+Creates a single workflow file with all steps embedded.
+
+**Best for:** Single repository, simple setup, easy to understand
 
 **Pros:**
+- All code in one file
+- Easy to customize
 - No external dependencies
-- Complete control over the workflow
-- Works even if the shared workflow repo is unavailable
 
 **Cons:**
-- Updates require manual changes to each repository
-- Harder to maintain consistency across multiple repos
+- Must update each repo individually
+- Code duplication if used across repos
 
-**Use when:** You want full control and don't plan to use this workflow across multiple repositories.
+### Option B: Local Reusable Workflow
 
-### Option B: Dynamic Workflow (Shared Reference)
+Creates a reusable workflow file plus a CI file that calls it.
 
-Creates a workflow that references a centralized shared workflow from this repository.
+**Best for:** Complex repositories with multiple workflows
 
 **Pros:**
-- Updates automatically from the shared repo
-- Centralized workflow management
-- Easy to maintain consistency across multiple repos
-- Update once, apply everywhere
+- Organized workflow structure
+- Can be reused by other workflows in same repo
+- Separates concerns
 
 **Cons:**
-- Requires the shared workflow repo to be accessible
-- Depends on external repository
+- Two files to maintain
+- Slightly more complex than Option A
 
-**Use when:** You manage multiple repositories and want centralized workflow updates.
+### Option C: Remote Shared Workflow
+
+References a centralized shared workflow from an external repository.
+
+**Best for:** Managing multiple repositories
+
+**Pros:**
+- Update once, apply everywhere
+- Centralized workflow management
+- Consistent across all repos
+
+**Cons:**
+- Requires separate shared workflow repository
+- External dependency
 
 ## Prerequisites
 
-- Git repository with a remote origin on GitHub
+- Git repository with a remote on GitHub
 - Dockerfile in your repository
 - Docker Hub account
-- (Optional) [GitHub CLI](https://cli.github.com/) for automatic secret configuration
-
-## What Gets Created
-
-The script creates:
-
-1. **`.github/workflows/ci.yml`** - Your GitHub Actions workflow file
-2. **GitHub Secrets** (if gh CLI is available):
-   - `DOCKERHUB_USERNAME` - Your Docker Hub username
-   - `DOCKERHUB_TOKEN` - Your Docker Hub access token
+- [GitHub CLI](https://cli.github.com/) (required for automatic setup)
 
 ## Interactive Setup Process
 
-When you run the script, you'll be prompted for:
+The script will ask you for:
 
-1. **Deployment Type** - Choose between Static (A) or Dynamic (B) workflow
-2. **Workflow Version** - Branch or tag to use (Dynamic only, default: main)
-3. **Docker Image Name** - Full image name (e.g., `username/app-name`)
-4. **Dockerfile Path** - Location of your Dockerfile (default: `./Dockerfile`)
-5. **Build Context** - Docker build context path (default: `.`)
-6. **Target Platforms** - Platforms to build for (default: `linux/amd64,linux/arm64`)
-7. **Docker Hub Username** - Your Docker Hub username
-8. **Docker Hub Token** - Your Docker Hub access token (hidden input)
+1. **Deployment Type** - Choose A, B, or C (default: A)
+2. **Docker Hub Username** - Your Docker Hub username (auto-detected from GitHub)
+3. **Docker Hub Token** - Access token from Docker Hub
+4. **Docker Image Name** - Full image name (default: `username/repo-name`)
+5. **Dockerfile Path** - Location of Dockerfile (default: `./Dockerfile`)
+6. **Build Context** - Docker build context (default: `.`)
+7. **Target Platforms** - Platforms to build (default: `linux/amd64,linux/arm64`)
 
-## Manual Installation
+## Features
 
-If you prefer to download and review the script first:
+### Auto-Detection
+- Automatically detects your GitHub username from git remote
+- Prepopulates Docker Hub username
+- Prepopulates image name as `username/repo-name`
 
-```bash
-# Download the script
-curl -fsSL -o setup-shared-workflows.sh https://raw.githubusercontent.com/cyberralf83/my-gha-workflows/main/setup-shared-workflows.sh
+### Smart Validation
+- Two attempts for each required input before exiting
+- Automatic lowercase conversion for image names (Docker requirement)
+- Clear error messages and helpful prompts
 
-# Make it executable
-chmod +x setup-shared-workflows.sh
+### Full Automation
+- Sets GitHub secrets automatically
+- Commits and pushes workflow files
+- Provides helpful next-step commands
 
-# Run it
-./setup-shared-workflows.sh
-```
+## What Gets Created
 
-## Example Usage
+Depending on your choice:
 
-### Static Workflow Setup
+**Option A:**
+- `.github/workflows/ci.yml` - Complete workflow with all steps
 
-```bash
-$ bash <(curl -fsSL https://raw.githubusercontent.com/cyberralf83/my-gha-workflows/main/setup-shared-workflows.sh)
+**Option B:**
+- `.github/workflows/docker-build-push.yml` - Reusable workflow
+- `.github/workflows/ci.yml` - CI workflow that calls the reusable one
 
-======================================
-Shared Workflows Integration Setup
-======================================
+**Option C:**
+- `.github/workflows/ci.yml` - CI workflow that references remote shared workflow
 
-📁 Repository: my-app
-✅ Auto-detected repository: myusername/my-app
-
-======================================
-Workflow Deployment Type
-======================================
-
-Choose how to deploy your Docker CI/CD workflow:
-
-  A) Static workflow (self-contained, all steps in your repo)
-  B) Dynamic workflow (references shared workflow repo)
-
-Select deployment type [A/B] (default: B): A
-
-🐳 Docker image name: myusername/my-app
-📄 Path to Dockerfile: ./Dockerfile
-📍 Build context path: .
-🖥️  Target platforms: linux/amd64,linux/arm64
-🔐 Docker Hub username: myusername
-🔑 Docker Hub token/password: ********
-
-✅ Created .github/workflows/ci.yml
-✅ DOCKERHUB_USERNAME secret set successfully
-✅ DOCKERHUB_TOKEN secret set successfully
-
-======================================
-✅ Setup Complete!
-======================================
-
-📋 Deployment Summary:
-   Repository: myusername/my-app
-   Deployment Type: Static workflow (self-contained)
-   Docker Image: myusername/my-app
-   Platforms: linux/amd64,linux/arm64
-```
-
-### Dynamic Workflow Setup
-
-```bash
-Select deployment type [A/B] (default: B): B
-
-🔗 Workflows version/branch (default: main): main
-🐳 Docker image name: myusername/my-app
-...
-
-📋 Deployment Summary:
-   Repository: myusername/my-app
-   Deployment Type: Dynamic workflow (uses myusername/my-workflows@main)
-   Docker Image: myusername/my-app
-   Platforms: linux/amd64,linux/arm64
-```
-
-## Triggering the Workflow
-
-The workflow will automatically run when you:
-
-- Push to `main` branch → Builds and pushes with `latest` tag
-- Push to `develop` branch → Builds and pushes with `develop` tag
-- Create a version tag (e.g., `v1.0.0`) → Builds and pushes with that tag
-
-```bash
-# Trigger workflow by pushing to main
-git push origin main
-
-# Or create and push a version tag
-git tag v1.0.0
-git push origin v1.0.0
-```
-
-## Manual Secret Configuration
-
-If you don't have GitHub CLI installed, you can set secrets manually:
-
-1. Go to your repository on GitHub
-2. Navigate to **Settings** → **Secrets and variables** → **Actions**
-3. Click **New repository secret**
-4. Add:
-   - Name: `DOCKERHUB_USERNAME`, Value: your Docker Hub username
-   - Name: `DOCKERHUB_TOKEN`, Value: your Docker Hub access token
+Plus GitHub Secrets:
+- `DOCKERHUB_USERNAME` - Your Docker Hub username
+- `DOCKERHUB_TOKEN` - Your Docker Hub access token
 
 ## Creating a Docker Hub Access Token
 
@@ -200,103 +142,111 @@ If you don't have GitHub CLI installed, you can set secrets manually:
 6. Click **Generate**
 7. Copy the token (you won't see it again!)
 
-## Shared Workflow Repository Structure
+## Triggering the Workflow
 
-For Option B (Dynamic), this repository contains:
+The workflow automatically runs when you:
 
-```
-my-gha-workflows/
-├── .github/
-│   └── workflows/
-│       └── docker-build-push.yml    # Reusable shared workflow
-├── setup-shared-workflows.sh         # Setup script
-├── README.md                          # This file
-└── SHARED_WORKFLOWS_SETUP.md         # Detailed setup guide
-```
+- **Push to main or develop** → Builds with tag based on branch
+- **Push a version tag** → Builds with that tag (e.g., `v1.0.0`)
+- **Manual trigger** → Use GitHub UI or run `gh workflow run ci.yml`
 
-## Updating the Dynamic Workflow
-
-If you're using Option B (Dynamic):
-
-1. **Update all repos automatically** - Modify the workflow in this repo, and all repos using `@main` will use the updated version on their next run
-2. **Use version tags** - Create git tags (e.g., `v1.0.0`) in this repo and reference them in your repos for stable versions
+Example:
 
 ```bash
-# In this repo (my-gha-workflows)
+# Trigger on push to main (tags as 'latest')
+git push origin main
+
+# Create and push a version tag
 git tag v1.0.0
 git push origin v1.0.0
 
-# Then in your app repos, reference the tag:
-# uses: myusername/my-workflows/.github/workflows/docker-build-push.yml@v1.0.0
+# Manual trigger
+gh workflow run ci.yml
 ```
+
+## Manual Secret Configuration
+
+If you don't have GitHub CLI installed:
+
+1. Go to your repository on GitHub
+2. Navigate to **Settings** → **Secrets and variables** → **Actions**
+3. Click **New repository secret**
+4. Add both secrets:
+   - `DOCKERHUB_USERNAME` - Your Docker Hub username
+   - `DOCKERHUB_TOKEN` - Your Docker Hub access token
 
 ## Troubleshooting
 
 ### "Not in a git repository" error
 
-Make sure you're running the script from the root of your git repository:
+Run the script from your repository root:
 
 ```bash
 cd /path/to/your/repo
-bash <(curl -fsSL https://raw.githubusercontent.com/cyberralf83/my-gha-workflows/main/setup-shared-workflows.sh)
+./setup.sh
 ```
 
 ### "No remote origin found" error
 
-Add a GitHub remote to your repository:
+Add a GitHub remote:
 
 ```bash
 git remote add origin https://github.com/username/repo.git
 ```
 
+### "repository name must be lowercase" error
+
+The script now automatically converts image names to lowercase. If you see this error, your workflow was created with an older version. Re-run the setup script.
+
 ### Workflow fails with "authentication required"
 
-Make sure your GitHub secrets are set correctly:
+Check your GitHub secrets:
 
 ```bash
 gh secret list
 ```
 
-If they're missing, set them manually or run the setup script again.
+If missing, re-run the setup script or add them manually.
 
 ### Multi-platform build fails
 
-Ensure you have QEMU and Buildx set up (the workflow handles this automatically). If issues persist, try removing ARM64 from the platforms:
+Try building for single platform only:
 
 ```
-Platforms: linux/amd64
+Target platforms: linux/amd64
 ```
 
-### Dynamic workflow not found (Option B)
+### "workflow_dispatch trigger" error
 
-Ensure the shared workflow repository:
-- Exists and is public
-- Contains `.github/workflows/docker-build-push.yml`
-- The branch/tag you referenced exists
+This should be fixed in the latest version. The workflow files now include `workflow_dispatch:` trigger. Re-run the setup script to update.
 
-## Advanced Configuration
+## Advanced Usage
 
-### Custom Workflow File
+### Customizing the Workflow
 
-If you want to customize the generated workflow:
+After setup, you can edit the workflow files in `.github/workflows/` to:
+- Add additional build steps
+- Change trigger conditions
+- Add notifications
+- Integrate with other services
 
-1. Run the setup script
-2. Edit `.github/workflows/ci.yml` to add custom steps
-3. Commit and push
+### Using with Option C (Shared Workflows)
 
-### Multiple Workflows
+For Option C, you need a separate public repository with the shared workflow:
 
-Run the script multiple times with different configurations to create multiple workflow files:
+1. Create a public repo (e.g., `my-workflows`)
+2. Add `.github/workflows/docker-build-push.yml` with the reusable workflow
+3. Reference it in your app repos using the setup script
 
-```bash
-# First run - creates ci.yml
-./setup-shared-workflows.sh
+See the reusable workflow template in this repository's `.github/workflows/` directory (if using Option B locally, it generates this file).
 
-# Manually rename the file
-mv .github/workflows/ci.yml .github/workflows/docker-build.yml
+## Repository Structure
 
-# Run again for a different configuration
-./setup-shared-workflows.sh
+```
+my-gha-workflows/
+├── setup.sh              # Unified setup script
+├── README.md             # This file
+└── .gitattributes        # Git configuration
 ```
 
 ## Support
