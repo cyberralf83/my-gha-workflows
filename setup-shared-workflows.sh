@@ -86,8 +86,35 @@ if [ "$DEPLOYMENT_TYPE" == "B" ]; then
     WORKFLOWS_VERSION="${WORKFLOWS_VERSION:-main}"
 fi
 
-# Ask for Docker app name with prepopulated default
-DEFAULT_APP_NAME="$DEFAULT_USERNAME/$REPO_NAME"
+echo ""
+echo "======================================"
+echo "Docker Hub Configuration"
+echo "======================================"
+echo ""
+
+# Ask for Docker Hub username first (so we can use it for image name default)
+ATTEMPT=1
+while [ $ATTEMPT -le 2 ]; do
+    read -p "🔐 Docker Hub username (default: $DEFAULT_USERNAME): " DOCKERHUB_USERNAME
+    DOCKERHUB_USERNAME="${DOCKERHUB_USERNAME:-$DEFAULT_USERNAME}"
+
+    if [ -z "$DOCKERHUB_USERNAME" ]; then
+        if [ $ATTEMPT -eq 2 ]; then
+            echo "❌ Docker Hub username cannot be empty. Exiting."
+            exit 1
+        else
+            echo "⚠️  Docker Hub username cannot be empty. Please try again."
+            ATTEMPT=$((ATTEMPT + 1))
+        fi
+    else
+        break
+    fi
+done
+
+echo ""
+
+# Ask for Docker app name with prepopulated default using DOCKERHUB_USERNAME
+DEFAULT_APP_NAME="$DOCKERHUB_USERNAME/$REPO_NAME"
 ATTEMPT=1
 while [ $ATTEMPT -le 2 ]; do
     read -p "🐳 Docker image name (default: $DEFAULT_APP_NAME): " APP_NAME
@@ -120,28 +147,9 @@ PLATFORMS="${PLATFORMS:-linux/amd64,linux/arm64}"
 
 echo ""
 echo "======================================"
-echo "Docker Hub Credentials"
+echo "Docker Hub Token"
 echo "======================================"
 echo ""
-
-# Ask for Docker Hub username with prepopulated default
-ATTEMPT=1
-while [ $ATTEMPT -le 2 ]; do
-    read -p "🔐 Docker Hub username (default: $DEFAULT_USERNAME): " DOCKERHUB_USERNAME
-    DOCKERHUB_USERNAME="${DOCKERHUB_USERNAME:-$DEFAULT_USERNAME}"
-
-    if [ -z "$DOCKERHUB_USERNAME" ]; then
-        if [ $ATTEMPT -eq 2 ]; then
-            echo "❌ Docker Hub username cannot be empty. Exiting."
-            exit 1
-        else
-            echo "⚠️  Docker Hub username cannot be empty. Please try again."
-            ATTEMPT=$((ATTEMPT + 1))
-        fi
-    else
-        break
-    fi
-done
 
 # Ask for Docker Hub token (hidden input)
 ATTEMPT=1
