@@ -156,6 +156,13 @@ while [ $ATTEMPT -le 2 ]; do
     fi
 done
 
+# Convert to lowercase (Docker requires lowercase image names)
+APP_NAME_LOWER=$(echo "$APP_NAME" | tr '[:upper:]' '[:lower:]')
+if [ "$APP_NAME" != "$APP_NAME_LOWER" ]; then
+    echo "ℹ️  Converted to lowercase: $APP_NAME_LOWER (Docker requires lowercase)"
+    APP_NAME="$APP_NAME_LOWER"
+fi
+
 # Ask for Dockerfile path
 read -p "📄 Path to Dockerfile (default: ./Dockerfile): " DOCKERFILE_PATH
 DOCKERFILE_PATH="${DOCKERFILE_PATH:-./Dockerfile}"
