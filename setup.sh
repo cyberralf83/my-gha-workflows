@@ -80,11 +80,15 @@ echo ""
 
 # Ask for remote workflow repo details (only for option B)
 if [ "$DEPLOYMENT_TYPE" == "B" ]; then
-    read -p "🔗 Shared workflow repository (e.g., username/my-workflows): " WORKFLOWS_REPO
+    DEFAULT_WORKFLOWS_REPO="cyberralf83/my-gha-workflows"
+    read -p "🔗 Shared workflow repository (default: $DEFAULT_WORKFLOWS_REPO): " WORKFLOWS_REPO
+    WORKFLOWS_REPO="${WORKFLOWS_REPO:-$DEFAULT_WORKFLOWS_REPO}"
+
     if [ -z "$WORKFLOWS_REPO" ]; then
         echo "❌ Workflow repository cannot be empty"
         exit 1
     fi
+
     read -p "🔗 Workflow version/branch (default: main): " WORKFLOWS_VERSION
     WORKFLOWS_VERSION="${WORKFLOWS_VERSION:-main}"
     echo ""
